@@ -38,3 +38,31 @@
 ## Operational Considerations
 - Monitor render queue depth, template version drift, CDN error rates.
 - Provide runbooks for rolling out new templates, emergency disabling of buggy templates, and abuse handling.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Requests --> CDN[CDN Edge]
+    CDN --> Renderer[Rendering Service\n(SVG/HTML -> Image)]
+    Renderer --> AssetStore[(Asset Storage)]
+    Renderer --> Templates[(Template Repo)]
+    AssetStore --> CDN
+    Renderer --> Cache[(Mid-tier Cache)]
+    Security[Rate Limits + Sanitizers] --> Renderer
+    Observability --> Renderer
+```
+
+### Design Walkthrough
+- **Lookup & dedupe:** Resolve hashes to stored avatars, deduplicate uploads via hashing, and sanitize user uploads.
+- **Rendering engine:** Generate OG images dynamically with templating, fonts, and localization; sandbox renderers to prevent SSRF or code injection.
+- **Caching:** Store rendered outputs in mid-tier cache + CDN; include query params in cache key and allow purge triggers when users update avatars.
+- **Resiliency:** Provide fallback avatars/templates if rendering fails and log incidents for quick rollbacks.
+
+## Interview Kit
+1. **How do you balance personalization with cache efficiency?**  
+   Parameterize only meaningful inputs, bucket styles, and rely on signed URLs to avoid exposing secrets while still enabling caching.
+2. **What protects rendering services from abuse?**  
+   Enforce rate limits per user/IP, sanitize template inputs, run renders in jailed environments, and monitor CPU/memory anomalies.
+3. **How do you roll out a new template safely?**  
+   Canary with low-traffic cohort, compare render latency/error rates, and keep ability to revert template repo commit instantly.

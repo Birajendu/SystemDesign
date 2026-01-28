@@ -37,3 +37,32 @@
 ## Operational Considerations
 - Monitor feature freshness, model performance drift, API latency, experiment metrics.
 - Provide runbooks for feature backfill, model rollback, and bias/fairness investigations.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Events[Behavior Events] --> Streaming[Streaming Features]
+    BatchData[Batch Data Lake] --> Offline[Offline Feature Pipeline]
+    Streaming --> FeatureStore[(Feature Store)]
+    Offline --> FeatureStore
+    FeatureStore --> Candidates[Candidate Generator]
+    Candidates --> Ranker[Ranking/ML Service]
+    Ranker --> API[Recommendation API]
+    Feedback[Feedback Loop] --> Streaming
+    Feedback --> Offline
+```
+
+### Design Walkthrough
+- **Feature pipelines:** Blend offline aggregations (co-engagement, embeddings) with streaming counters for freshness; store in governed feature store.
+- **Serving path:** Candidate generators fetch similarities or ANN results; ranker applies ML model with explainability hooks before returning responses.
+- **Feedback:** Capture clicks/hides, feed into streaming counters and offline retraining pipelines, and monitor for drift or bias.
+- **Experimentation:** Wrap API with experiment framework to compare models safely and roll back quickly if metrics drop.
+
+## Interview Kit
+1. **How do you prevent stale recommendations?**  
+   Set freshness SLAs, expire embeddings beyond threshold, and rely on streaming signals to adjust scores in near-real time.
+2. **What’s your approach to fairness/bias?**  
+   Include fairness metrics per cohort, enforce constraints in ranking stage, and audit feature contributions for problematic correlations.
+3. **How do you explain recommendations to users?**  
+   Log top contributing features, store rationale with the response, and surface to UI or reviewers when needed.

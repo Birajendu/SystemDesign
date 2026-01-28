@@ -39,3 +39,31 @@
 ## Operational Considerations
 - Monitor policy cache hit rate, token issuance volume, and unauthorized access attempts.
 - Provide emergency procedures to revoke all tokens, rotate keys, and purge CDN caches.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Users --> API[Media API]
+    API --> Policy[Policy Engine/ACL Store]
+    API --> Metadata[(Metadata & Key Store)]
+    Metadata --> Storage[(Encrypted Media Storage)]
+    Storage --> CDN[Private CDN / Origin Shield]
+    CDN --> Viewers[Authorized Viewers]
+    Audit[Audit & Access Logs] --> Security[Security/Ops]
+    Policy --> Notifications[Notification Service]
+```
+
+### Design Walkthrough
+- **Policy evaluation:** On every request, API queries policy engine to evaluate viewer context, ACL rules, and privacy settings in <30 ms.
+- **Token issuance:** Generate short-lived signed URLs referencing viewer ID and scope; CDN/origin validates before streaming bytes.
+- **Secure storage:** Encrypt at rest with per-media keys (envelope encryption) and store key references in metadata service.
+- **Auditing:** Immutable logs capture every grant/deny; anomaly detection flags unusual access for review.
+
+## Interview Kit
+1. **How do you revoke access immediately?**  
+   Maintain token blacklist/epoch counters, purge CDN caches, and update policy caches; optionally rotate encryption keys for high-risk assets.
+2. **What keeps private media out of shared caches?**  
+   Use dedicated origins/CDNs, include viewer-specific tokens in cache key, and disable public caching headers.
+3. **How do you expose privacy settings in the product without leaking info?**  
+   Serve aggregated hints (e.g., “only close friends”) while keeping exact ACL membership server-side; ensure UI requests only reveal what user can already access.

@@ -37,3 +37,32 @@
 ## Operational Considerations
 - Provide tuning guide for memtable size, block cache, compaction concurrency.
 - Document upgrade strategy for SSTable format and migration to distributed deployments.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Clients --> API[Write/Read API]
+    API --> WAL[(Write-Ahead Log)]
+    API --> Memtable[Memtable (Skiplist)]
+    Memtable --> Flush[Flush Manager]
+    Flush --> SSTableLevels[(SSTable Levels)]
+    SSTableLevels --> Compaction[Compaction Controller]
+    SSTableLevels --> Cache[Block Cache/Bloom Filters]
+    Compaction --> SSTableLevels
+    Monitoring --> Compaction
+```
+
+### Design Walkthrough
+- **Fresh writes:** Append to WAL and memtable; once thresholds trip, flush memtable to immutable SSTables and recycle WAL segments.
+- **Reads:** Layer iterators from cache to SSTables, applying bloom filters first to skip unnecessary IO; integrate block cache for hot ranges.
+- **Compaction controls:** Configure leveled/tiered policies, limit concurrent background work, and surface compaction debt metrics.
+- **Advanced features:** Support snapshots via pinned memtables, TTLs by storing expiry metadata, and bulk ingest using pre-sorted files.
+
+## Interview Kit
+1. **How do you keep tail latency low during compaction?**  
+   Use rate limiting, prioritize smaller compactions, and consider adaptive scheduling to pause compaction when foreground latency spikes.
+2. **What’s the cost of large memtables?**  
+   They reduce flush frequency but increase recovery time and risk data loss; balance against available memory and WAL durability.
+3. **How do you support range queries efficiently?**  
+   Maintain sorted SSTables, use prefix bloom filters, and prefetch sequential blocks; compaction should reduce overlapping ranges.

@@ -38,3 +38,33 @@
 ## Operational Considerations
 - Alerts on ingestion backlog, streaming error rates, and retention compliance.
 - Provide runbooks for key rotation, Kafka rebalancing, and hotfix log deletion requests.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Agents{{CI/CD Agents}} --> Ingest[gRPC Ingestion API]
+    Ingest --> Bus[(Log Topic)]
+    Bus --> Streamer[Live Stream Service\n(WebSocket/SSE)]
+    Bus --> Archive[(Columnar Store/S3)]
+    Streamer --> Viewers[CLI/UI Clients]
+    Archive --> Query[Historical Query API]
+    Security[Redaction & Policy Engine] --> Ingest
+    Security --> Streamer
+    Obs[Metrics + Audit] --> Ingest
+    Obs --> Streamer
+```
+
+### Design Walkthrough
+- **Protocol selection:** Use gRPC for ingestion (bidirectional, efficient), WebSockets for live streaming, and REST for paginated history downloads.
+- **Data pipeline:** Agents batch logs, send to ingestion; messages land in Kafka, fueling both live streaming and ClickHouse/S3 ingestion for historical queries.
+- **Security posture:** Redact secrets inline, enforce tenant isolation per channel, and require short-lived tokens for both pushers and viewers.
+- **Operational tooling:** Provide cursor bookmarks, download/export endpoints, and runbooks for reprocessing when backfills or retention changes happen.
+
+## Interview Kit
+1. **How do you prevent a slow consumer from blocking live streams?**  
+   Buffer per-connection with bounded queues, drop/notify when lag exceeds SLA, and allow client to resume via bookmark/cursor.
+2. **What’s your approach to multi-tenant isolation?**  
+   Separate logical topics per tenant or tag events, enforce ACLs at ingestion and streaming layers, and encrypt logs with tenant-specific keys.
+3. **How would you replay historical logs into the live stream?**  
+   Provide a replay mode that reads from archive storage, pushes through the same streaming stack with special markers, and ensures clients differentiate replay vs. live data.

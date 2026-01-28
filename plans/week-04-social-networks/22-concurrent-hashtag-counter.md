@@ -37,3 +37,31 @@
 ## Operational Considerations
 - Monitor shard skew, stream lag, Redis memory usage, and accuracy drift.
 - Document procedures for manual adjustments, recounts, and incident communication.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Producers[[Posts/Events]] --> Ingest[Ingestion/API]
+    Ingest --> Stream[(Kafka/Flink)]
+    Stream --> ShardedCounters[(Sharded Counters\nRedis/Scylla)]
+    ShardedCounters --> Ranker[Ranking Service]
+    Ranker --> APIs[Trending API]
+    Stream --> OLAP[(Analytics Warehouse)]
+    Moderation[Anti-abuse Service] --> Stream
+    Observability --> ShardedCounters
+```
+
+### Design Walkthrough
+- **Streaming path:** Events enter Kafka, deduped, enriched, and aggregated by stream processors updating sharded counters.
+- **Ranking service:** Periodically merges shards, applies decay per window (1m/1h/1d), and exposes APIs with pagination plus locale filters.
+- **Anti-abuse:** Apply heuristics (rate limits, anomaly scores) before increments to keep trends meaningful.
+- **Historical view:** Persist aggregates to OLAP for auditing, retrospective analysis, and machine learning.
+
+## Interview Kit
+1. **How do you reconcile counters after a node crash?**  
+   Replay stream offsets for affected shard from Kafka, compare to durable snapshots, and run reconciliation jobs until deltas shrink.
+2. **What’s your plan for localized trending?**  
+   Partition counters by (hashtag, locale), apply weighting by region population, and ensure APIs allow filtering by geography.
+3. **How do you avoid double counting retweets/shares?**  
+   Include dedupe keys (user_id, event_id) and reject duplicates within configurable windows; track dedupe hit rate as a health metric.

@@ -38,3 +38,31 @@
 ## Operational Considerations
 - Monitor sync backlog, error codes, chunk dedupe ratio.
 - Provide support tooling to inspect device states, kick resyncs, and purge stale chunks.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Watcher[Local Watcher] --> Chunker[Chunker + Hasher]
+    Chunker --> LocalQueue[Local WAL/Queue]
+    LocalQueue --> SyncAPI[Sync Service API]
+    SyncAPI --> ManifestStore[(Manifest/Metadata Store)]
+    SyncAPI --> ObjectStore[(Object/Blob Store)]
+    ManifestStore --> Conflict[Conflict Resolver]
+    Conflict --> ClientUpdates[Client Updates]
+    ObjectStore --> ClientUpdates
+```
+
+### Design Walkthrough
+- **Client responsibilities:** Watch filesystem, chunk files, compute rolling hashes, and queue deltas with resumable tokens.
+- **Service fabric:** Manifest service tracks per-device version vectors; object store holds deduped blobs keyed by strong hash.
+- **Conflict handling:** On divergent edits, server signals clients to merge or auto-resolves using heuristics; offline edits persist locally until sync resumes.
+- **Observability:** Track backlog size, error classes, and dedupe efficiency to detect regressions early.
+
+## Interview Kit
+1. **How do you handle binary conflicts?**  
+   Store both versions, rename to avoid clobbering, and prompt users to reconcile manually; include metadata in notifications.
+2. **What makes sync resumable?**  
+   Include chunk sequence numbers + offsets, store local WAL, and allow server to respond with “resume from chunk N” semantics.
+3. **How do you secure data in transit/rest?**  
+   Use TLS (mutual auth if needed), encrypt blobs at rest with per-tenant keys, and scrub temp files on clients once upload confirmed.

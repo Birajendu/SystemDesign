@@ -37,3 +37,32 @@
 ## Operational Considerations
 - Monitor key server load, license issuance latency, token errors, QoE metrics.
 - Maintain emergency key rotation + CDN reroute procedures.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Publishers --> Ingest[Multi-Region Ingest]
+    Ingest --> Packagers[Packagers/DRM Encryptors]
+    Packagers --> CDN[Multi-CDN]
+    Viewers --> CDN
+    Auth[Auth/Entitlement Service] --> Tokenizer[Token Service]
+    Tokenizer --> CDN
+    Packagers --> DRM[DRM Key Servers]
+    Monitoring --> Ingest
+    Monitoring --> CDN
+```
+
+### Design Walkthrough
+- **Security layer:** Auth service issues viewer-specific tokens, DRM licenses, and geo/IP checks before CDN grants access.
+- **Redundancy:** Duplicate ingest + packagers across regions, use hot-hot setups, and replicate keys securely to avoid single point of failure.
+- **Monitoring/automation:** QoE telemetry drives auto-failover; when region fails, reroute traffic and spin up additional capacity automatically.
+- **Incident readiness:** Key leak drills, geo-fencing updates, and runbooks keep privacy and availability balanced.
+
+## Interview Kit
+1. **How do you rotate DRM keys without buffering viewers?**  
+   Use overlapping key windows, push new keys ahead of time, and coordinate with players so they fetch before current key expires.
+2. **What metrics signal privacy breaches?**  
+   Unexpected token issuance spikes, geo anomalies, or DRM errors; pair with WAF/CDN logs to detect scraping attempts.
+3. **How would you handle full-region outage mid-event?**  
+   Promote standby ingest/packagers, update DNS/Anycast, warm CDN caches in secondary regions, and communicate to ops + partners immediately.

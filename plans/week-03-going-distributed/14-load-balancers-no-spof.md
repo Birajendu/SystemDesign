@@ -37,3 +37,32 @@
 ## Operational Considerations
 - Monitor BGP session health, control-plane replication lag, and per-service error rates.
 - Maintain runbooks for cert rotation, config schema migrations, and DDoS mitigation steps.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Clients --> Anycast[Anycast/DNS]
+    Anycast --> EdgeL4[L4 Edge Tier]
+    EdgeL4 --> L7[L7 Gateways/Envoy]
+    L7 --> Services[Application Services]
+    Control[Control Plane\n(etcd/Raft + Config API)] --> EdgeL4
+    Control --> L7
+    Telemetry[Telemetry + Synthetic Probes] --> EdgeL4
+    Telemetry --> L7
+    EdgeL4 --> DDoS[DDoS Mitigation]
+```
+
+### Design Walkthrough
+- **Control/data separation:** Configs, certificates, and health rules live in a replicated control plane that pushes versions via xDS-style APIs; data plane stays stateless.
+- **Multi-layer routing:** Combine Anycast addresses, DNS failover, L4 VIPs, and L7 gateways so losing any component doesn’t block traffic entirely.
+- **Health + canaries:** Synthetic checks and per-hop latency metrics trigger auto-draining; config pushes roll out in waves with fast rollback.
+- **DDoS posture:** Keep dedicated scrubbing/edge tier, enforce connection limits, and integrate with upstream providers for volumetric attacks.
+
+## Interview Kit
+1. **How do you roll config without taking down the fleet?**  
+   Validate in staging, push to 1% canary, monitor error budget, then roll globally; keep previous version cached for instant rollback.
+2. **What happens when a region dies?**  
+   Withdraw BGP announcements, fail DNS health checks, reroute clients to secondary regions, and scale there automatically while SREs investigate.
+3. **How do you store per-tenant routing policies safely?**  
+   Version configs, enforce schema validation, and restrict access via RBAC + approvals; include diff previews for human review.

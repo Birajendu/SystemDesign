@@ -36,3 +36,29 @@
 ## Operational Considerations
 - Monitor replication lag, TTL expiries, and CPU/memory headroom.
 - Provide runbooks for cache flushes, node replacement, and TTL tuning.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Clients --> SDK[Client SDK\n(Retry + Metrics)]
+    SDK --> LockSvc[Lock Service API]
+    LockSvc --> Store[(Lock Store\nRedis/Dynamo/etcd)]
+    LockSvc --> Audit[Audit/Event Stream]
+    Store --> Monitor[Metrics + Expiry Alerts]
+    LockSvc --> Tokens[Fencing Token Generator]
+```
+
+### Design Walkthrough
+- **Acquisition path:** Clients request locks via SDK; service issues monotonic tokens and persists owner metadata with TTL.
+- **Renewal/expiry:** Heartbeat jobs renew leases; expired locks trigger events so dependent systems can reconcile.
+- **Fairness & priority:** Implement FIFO queues or weighted priorities where fairness matters, and allow admin overrides.
+- **Tooling:** Provide inspection UIs, force-release endpoints, and instrumentation to spot contention before it harms SLAs.
+
+## Interview Kit
+1. **How do you avoid clock skew issues for TTLs?**  
+   Base expiries on store-side time, not client clocks; rely on monotonic counters or server timestamps.
+2. **What’s the role of fencing tokens?**  
+   They provide a monotonically increasing identifier that downstream systems can verify, preventing stale owners from mutating shared state.
+3. **How would you test lock fairness?**  
+   Run stress tests with thousands of clients, collect acquisition order, and ensure starvation doesn’t occur; adjust queueing or backoff as needed.

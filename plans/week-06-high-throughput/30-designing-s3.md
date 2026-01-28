@@ -37,3 +37,33 @@
 ## Operational Considerations
 - Monitor metadata DB health, repair backlog, erasure coding CPU, S3 API throttling.
 - Provide runbooks for bucket migrations, version purge operations, and incident response.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Clients --> API[REST API / SDK]
+    API --> Auth[IAM/Auth Layer]
+    API --> ControlPlane[Control Plane\n(Metadata/Policy)]
+    ControlPlane --> MetadataStore[(Metadata DB)]
+    API --> DataPlane[Data Plane\n(Storage Nodes)]
+    DataPlane --> ChunkStores[(Chunk/Erasure Nodes)]
+    ChunkStores --> Replication[Replication / Repair]
+    Events[Event + Notification Bus] --> Clients
+    Observability --> API
+    Observability --> DataPlane
+```
+
+### Design Walkthrough
+- **Control vs. data plane:** Control plane manages buckets, ACLs, versioning; data plane handles object chunks, erasure coding, and replication.
+- **Consistency:** Offer read-after-write for new objects by coordinating metadata commit with data durability; stale reads for overwrite acceptable with eventual consistency.
+- **Durability pipeline:** Store chunks across AZs, run scrubbing jobs, and feed repair service to replace degraded blocks automatically.
+- **Ecosystem:** Integrate notifications, lifecycle rules, and billing so the service feels complete for users.
+
+## Interview Kit
+1. **How do you guarantee 11 nines of durability?**  
+   Combine replication + erasure coding across AZs, continuous scrubbing, and fast repair of corrupted chunks; model durability mathematically.
+2. **What’s your strategy for small object performance?**  
+   Batch metadata ops, leverage SSD caches, and guide clients toward multipart uploads or bundling when object counts explode.
+3. **How do you isolate noisy tenants?**  
+   Apply request throttles per bucket/account, monitor per-tenant KPIs, and autoscale per-tenant partitions when necessary.

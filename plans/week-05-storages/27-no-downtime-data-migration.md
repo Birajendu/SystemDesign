@@ -36,3 +36,30 @@
 ## Operational Considerations
 - Keep migrations small/batch to reduce blast radius; maintain calendar + approval workflow.
 - Store artifacts/logs per migration for audit and lessons learned.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Clients --> DualWrite[Dual Write Layer]
+    Source[(Source DB)] --> CDC[(CDC Pipeline)]
+    DualWrite --> Target[(Target DB)]
+    CDC --> Target
+    Target --> Validator[Validation/Shadow Read Service]
+    Validator --> Dashboard[Migration Dashboard]
+    DualWrite --> FeatureFlags[Feature Flags / Traffic Router]
+```
+
+### Design Walkthrough
+- **Mirroring:** Begin with CDC or dual writes from source to target, ensuring order and idempotency.
+- **Validation:** Shadow read from target, compare checksums or sampled rows, and expose drift metrics for go/no-go decisions.
+- **Cutover:** Use feature flags or routers to shift reads/writes gradually; keep abort switch ready.
+- **Cleanup:** After confidence window, disable dual writes, decommission old resources, and archive migration artifacts.
+
+## Interview Kit
+1. **How do you detect silent divergence?**  
+   Run continuous diff jobs, compare aggregates, and alert on mismatches; maintain historical drift metrics.
+2. **What’s your rollback plan?**  
+   Keep source authoritative until validation passes, flip traffic with the ability to immediately revert flag, and ensure writes continue to source during rollback.
+3. **How do you migrate huge tables without downtime?**  
+   Copy snapshots in chunks, apply CDC to catch up, run throttled validation, and schedule cutover during low traffic while dual-writing to cover the gap.

@@ -37,3 +37,32 @@
 ## Operational Considerations
 - Monitor saga backlog, inventory snapshot accuracy, payment error rates.
 - Provide feature flags for promotions, kill switches, and degrade paths (queueing orders) during flash sales.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Customers --> API[Checkout API]
+    API --> Orchestrator[Saga/Workflow Engine]
+    Orchestrator --> Cart[Cart Service]
+    Orchestrator --> Payments[Payment Service]
+    Orchestrator --> Inventory[Inventory Service]
+    Orchestrator --> Fulfillment[Fulfillment/Logistics]
+    Inventory --> Warehouse[(Warehouse/FC Systems)]
+    Orchestrator --> Events[(Event Bus/CQRS)]
+    Events --> ReadModels[Read Models/Tracking]
+```
+
+### Design Walkthrough
+- **Domain boundaries:** Separate cart, pricing, payment, inventory, and fulfillment contexts; each owns its database and APIs.
+- **Saga orchestration:** Workflow engine sequences steps, retries idempotently, and triggers compensations (refund, restock) on failure.
+- **State projections:** Build read models for customer tracking and customer service dashboards fed by event bus.
+- **Reliability:** Include kill switches, degrade modes (queue requests), and near-real-time telemetry for war-room operations.
+
+## Interview Kit
+1. **How do you avoid double-charging customers?**  
+   Payments must be idempotent; include idempotency keys, confirm bank response before marking order as paid, and only capture funds when inventory is secured.
+2. **What prevents overselling inventory?**  
+   Reserve units atomically, set expirations, and reconcile with warehouse systems; degrade to waitlist when inventory uncertain.
+3. **How do you debug a stuck order?**  
+   Inspect saga state machine, check pending step/responses, and trace events through the bus; tooling should allow reruns or manual compensation.

@@ -36,3 +36,31 @@
 ## Operational Considerations
 - Monitor scheduler lag, job failure ratios, queue depth, worker health.
 - Provide runbooks for manual replays, stuck jobs, and capacity expansion.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    API[Job API] --> Scheduler[Scheduler/Shard Coordinators]
+    Scheduler --> Metadata[(Job Metadata Store)]
+    Scheduler --> Queue[(Execution Queue)]
+    Queue --> Workers[Worker Fleet]
+    Workers --> Results[(Result Store/Logs)]
+    Workers --> Metrics[Metrics & Heartbeats]
+    Scheduler --> Metrics
+    Admin[Admin UI] --> Scheduler
+```
+
+### Design Walkthrough
+- **Metadata & sharding:** Jobs stored with cron, timezone, retries; scheduler shards ownership via consistent hashing or leader election.
+- **Dispatch:** Due jobs enqueued onto message bus/queue; workers pick respecting rate limits and concurrency.
+- **Idempotency:** Workers wrap payload execution in safeguards, emitting completion or retry events; results stored for auditing.
+- **Visibility:** UI surfaces next run, failures, and allows pause/resume/run-now actions.
+
+## Interview Kit
+1. **How do you prevent double execution?**  
+   Store job executions with idempotency keys, ensure scheduler leadership is exclusive, and have workers check/mark state atomically.
+2. **What if a cron burst schedules thousands simultaneously?**  
+   Bucket start times with jitter, enforce per-tenant rate limits, and auto-scale workers to spread load.
+3. **How do you recover orphaned jobs after leader crash?**  
+   Persist scheduler state, use leases, and on failover rebuild due job heap from metadata store before resuming dispatch.

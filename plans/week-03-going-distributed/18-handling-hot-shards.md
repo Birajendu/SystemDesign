@@ -36,3 +36,31 @@
 ## Operational Considerations
 - Monitor routing cache staleness, config propagation delays, and backlog levels.
 - Keep capacity headroom (20–30%) per shard to absorb sudden spikes before automation kicks in.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Traffic[Traffic Sources] --> Router[Routing Layer]
+    Router --> Shard1[Shard A]
+    Router --> Shard2[Shard B]
+    Router --> ShardN[Shard N]
+    Shards{Shard Telemetry} --> Detector[Hot-Shard Detector]
+    Detector --> Orchestrator[Mitigation Orchestrator]
+    Orchestrator --> Router
+    Orchestrator --> Cache[Cache/Overlay]
+```
+
+### Design Walkthrough
+- **Detection:** Continuously stream shard metrics (QPS, p99 latency, CPU) into anomaly detectors that flag skew beyond thresholds.
+- **Mitigation catalog:** Predefine actions—key randomization, cache overlays, shard splitting, or throttling—so automation can trigger quickly.
+- **Orchestration:** On trigger, orchestrator updates routing metadata, spins up new shards, or duplicates hot keys across shards while maintaining consistency.
+- **Communication:** Expose dashboards and notification hooks so stakeholders know when SLAs are downgraded during mitigation.
+
+## Interview Kit
+1. **How do you split a shard with minimal downtime?**  
+   Snapshot data, stream CDC changes to new shards, run dual writes, and switch router entries once divergence is acceptably low.
+2. **When would you favor caching over resharding?**  
+   For temporary hotspots (marketing campaigns) where fronting with cache + TTL solves the issue faster than data movement.
+3. **How do you validate mitigation success?**  
+   Compare post-mitigation metrics to baseline, ensure automated detectors reset, and audit data correctness for moved/split shards.

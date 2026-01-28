@@ -37,3 +37,31 @@
 ## Operational Considerations
 - Monitor per-region QPS, aggregator lag, Redis memory, overlay delivery latency.
 - Provide runbooks for scaling up shards, muting abusive viewers, and draining streams.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Clients --> Edge[Edge Gateways]
+    Edge --> Aggregators[Regional Aggregators]
+    Aggregators --> HotStore[(In-memory Store/Redis)]
+    HotStore --> Broadcaster[Overlay Broadcaster]
+    Broadcaster --> Viewers
+    Aggregators --> Analytics[(Persistent Store)]
+    Moderation[Anti-spam Filters] --> Aggregators
+    Observability --> Aggregators
+```
+
+### Design Walkthrough
+- **Client batching:** SDK batches taps (counts + emoji) and sends at steady cadence with backoff/jitter to smooth network impact.
+- **Aggregation:** Regional services increment sharded counters, applying CRDT semantics to merge across regions without conflict.
+- **Overlay pipeline:** Broadcaster samples counts every 200–500 ms, smooths deltas, and pushes overlay hints to player surfaces.
+- **Persistence:** Aggregated stats land in OLAP for creator analytics and ML feedback loops.
+
+## Interview Kit
+1. **How do you prevent bots inflating counts?**  
+   Throttle per-device, use anomaly detection (entropy of emojis, device fingerprints), and allow moderators to mute offenders quickly.
+2. **What if packet loss causes client drift?**  
+   Clients resend last delta after reconnect; aggregator dedupes via sequence numbers to avoid double counting.
+3. **How do you keep overlays smooth under high variance?**  
+   Apply exponential moving averages, cap max delta per tick, and degrade to aggregated hearts when CPU/network saturates.

@@ -37,3 +37,31 @@
 ## Operational Considerations
 - Maintain library for safe cache clients (rate limiting, instrumentation, fallback) to avoid misuse.
 - Provide dashboards for memory usage, replication lag, and invalidation volume; set alerts for stampede indicators.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Users --> Edge[Edge/CDN Cache]
+    Edge --> Mid[L2 Distributed Cache]
+    Mid --> Source[Source of Truth DB/Search]
+    Mid --> BG[Background Refresh & Warmers]
+    Mid --> Metrics[Metrics + Stampede Guard]
+    Source --> Metrics
+    Ops[Invalidation/Control Plane] --> Edge
+    Ops --> Mid
+```
+
+### Design Walkthrough
+- **Tiered strategy:** Decide what lives at edge vs. mid-tier vs. client caches; assign TTLs and eviction policy per class, and ensure metadata service tracks ownership.
+- **Write policies:** Choose write-through for critical correctness, write-back for throughput, and refresh-ahead for expensive recomputations; document fallback paths when cache misses.
+- **Stampede defense:** Implement request coalescing, token buckets, and jittered TTLs so cache rebuilds are smooth; coordinate invalidations through a control channel with auditing.
+- **Operations:** Plan cold-start runbooks, node replacement automation, and global cache flushing procedures to keep downtime minimal.
+
+## Interview Kit
+1. **How would you debug a sudden drop in cache hit rate?**  
+   Slice metrics by key class, region, and client version; verify invalidation bursts, capacity pressure, or upstream latency, then reproduce with targeted load tests.
+2. **When is write-back dangerous?**  
+   When durability is critical or cache nodes can fail silently; mitigate by journaling mutations, using quorum writes, or sticking with write-through for those keys.
+3. **How do you warm caches before a major launch?**  
+   Use replay traffic or batch jobs to pre-fetch top keys, verify metrics (hit %, CPU), and keep toggle handy to fall back if warming overloads primaries.

@@ -38,3 +38,30 @@
 ## Operational Considerations
 - Monitor indicator lag, drop rates, and storage growth.
 - Provide moderation tooling to inspect receipts for abuse investigations with strict access controls.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Clients --> Gateway[Messaging Gateway]
+    Gateway --> Broker[(Event Bus)]
+    Broker --> ReceiptSvc[Receipt Service]
+    ReceiptSvc --> Store[(TTL Store/Cassandra)]
+    ReceiptSvc --> Fanout[Fan-out/Notification Layer]
+    Store --> Compliance[Compliance & Reporting]
+    Observability --> ReceiptSvc
+```
+
+### Design Walkthrough
+- **State machine:** Define ordering (typing < sent < delivered < seen), encode compactly, and ensure upgrades maintain backward compatibility.
+- **Transport:** Piggyback indicator events on existing channels, throttle updates, and dedupe jittery clients.
+- **Persistence:** Store receipts with TTL to support disputes while keeping storage under control; expose APIs for compliance exports.
+- **Fan-out:** Batch per conversation, send only deltas, and degrade optional indicators when system is stressed.
+
+## Interview Kit
+1. **How do you respect privacy opt-outs?**  
+   Store preferences per user/device, evaluate before emitting seen receipts, and still record internal state for reconciliation without exposing to other participants.
+2. **What’s your plan for ordering guarantee?**  
+   Tag events with monotonic counters per conversation and discard out-of-order updates unless they carry newer timestamps.
+3. **How would you debug missing read receipts?**  
+   Trace from client logs -> gateway -> broker -> receipt store, verifying each hop; compare stored receipts vs. fan-out logs to isolate the gap.

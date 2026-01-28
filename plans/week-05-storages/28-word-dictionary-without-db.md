@@ -37,3 +37,30 @@
 ## Operational Considerations
 - Provide versioning + compatibility policy; sign artifacts for integrity.
 - Document localization pipeline for additional languages and fallback behavior for missing words.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Corpus[Lexical Corpus] --> Builder[Trie/DAWG Builder]
+    Builder --> Artifact[(Memory-mapped Artifact)]
+    Artifact --> API[Lookup API/CLI]
+    API --> Clients
+    Artifact --> Updates[Patch Generator]
+    Updates --> Distribution[Distribution Channel]
+    Telemetry --> API
+```
+
+### Design Walkthrough
+- **Build pipeline:** Normalize corpus, sort lexicographically, and generate compressed trie/DAWG structures with offsets into definition blocks.
+- **Runtime:** Memory-map artifacts for fast startups; expose APIs for exact/prefix/fuzzy searches using precomputed metadata.
+- **Updates:** Publish delta patches derived from trie diffs; clients apply sequential patches to stay current without redownloading.
+- **Distribution:** Sign artifacts, host via CDN/package manager, and allow offline installs for mobile/embedded use cases.
+
+## Interview Kit
+1. **How do you support fuzzy search efficiently?**  
+   Precompute phonetic hashes or use BK-trees over the lexicon to limit search space, then fetch definitions via offsets.
+2. **What happens when artifact format needs to change?**  
+   Version headers, maintain backward-compatible readers, and provide migration tooling to rewrite caches or re-download dictionaries.
+3. **How do you handle localized content?**  
+   Build per-language artifacts, share infrastructure, and allow fallback to master language when specific entries are missing.

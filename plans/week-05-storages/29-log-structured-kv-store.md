@@ -37,3 +37,33 @@
 ## Operational Considerations
 - Monitor compaction queues, disk IO, CPU, and read amplification; configure alerts.
 - Provide tooling for live debugging (SSTable dump, key history) and safe capacity expansion.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Clients --> API[KV API]
+    API --> WAL[(Write-Ahead Log)]
+    API --> Memtable[Memtable]
+    Memtable --> Flush[SSTable Flush]
+    Flush --> SSTables[(SSTable Levels)]
+    SSTables --> Compactor[Compaction Scheduler]
+    SSTables --> Cache[Block Cache + Bloom Filters]
+    Compactor --> SSTables
+    Monitoring --> API
+    Monitoring --> Compactor
+```
+
+### Design Walkthrough
+- **Write pipeline:** Append to WAL, update memtable, and flush to SSTables based on size/time triggers; keep WAL durable for crash recovery.
+- **Read optimization:** Consult bloom filters and block cache before hitting storage; merge iterators across levels to return results.
+- **Compaction:** Schedule leveled/tiered compactions, throttle to protect foreground latency, and track write amplification.
+- **Maintenance:** Support snapshots, TTLs, and repair tools for corrupted SSTables or missing files.
+
+## Interview Kit
+1. **How do you choose between leveled and tiered compaction?**  
+   Leveled gives better read amplification for read-heavy workloads, while tiered favors write throughput; pick per deployment or allow runtime switch.
+2. **What safeguards exist for WAL corruption?**  
+   Include checksums, replicate WAL to secondary disks, and keep last good snapshot for quick restore.
+3. **How do you debug high read amplification?**  
+   Inspect table stats, look for tombstone buildup, enlarge block cache, or tune compaction thresholds to reduce overlapping ranges.

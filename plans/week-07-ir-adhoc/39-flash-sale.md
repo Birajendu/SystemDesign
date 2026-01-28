@@ -38,3 +38,30 @@
 ## Operational Considerations
 - Monitor queue depth, reservation expiries, conversion funnel, and bot detection metrics.
 - Maintain runbooks for sale-day war room, cross-team comms, and customer support macros.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Users --> QueueSvc[Queue/Waiting Room]
+    QueueSvc --> Checkout[Checkout API]
+    Checkout --> Inventory[(In-memory Inventory Store)]
+    Inventory --> Ledger[Durable Ledger/DB]
+    Checkout --> Payment[Payment Gateway]
+    Checkout --> Telemetry[Live Telemetry Dashboards]
+    AntiAbuse[Anti-bot Service] --> QueueSvc
+```
+
+### Design Walkthrough
+- **Admission control:** Waiting room meters traffic, validates captchas, and issues tokens controlling checkout entry.
+- **Inventory reservations:** Use in-memory transactional store for millisecond checks, write reservations with TTL, and confirm against durable ledger.
+- **UX degradations:** Provide progress indicators, live status updates, and fallback to waitlist when capacity maxes out.
+- **Telemetry:** Stream key metrics (queue depth, success rate) to dashboards powering war-room decisions.
+
+## Interview Kit
+1. **How do you prevent overselling?**  
+   Reserve inventory atomically, enforce TTLs, and reconcile with durable ledger before confirming payment; release reservations on failure.
+2. **What mitigations fight bots?**  
+   Use device fingerprinting, proof-of-work/captchas, rate limits, and behavioral scoring to evict suspicious sessions.
+3. **How do you test ahead of launch?**  
+   Replay synthetic loads using production-like scale, include chaos (dependency failures), and rehearse kill switch + rollback drills.

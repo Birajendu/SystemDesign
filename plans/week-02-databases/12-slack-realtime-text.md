@@ -39,3 +39,33 @@
 ## Operational Considerations
 - Monitor connection pool utilization, per-tenant quotas, backlog growth.
 - Provide tooling for tenant migrations, compliance exports, and message retention pruning.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Users --> Edge[Edge + Auth]
+    Edge --> Gateway[WebSocket Gateway]
+    Gateway --> Broker[(Event Bus/Kafka/Pulsar)]
+    Broker --> Fanout[Fan-out Workers]
+    Fanout --> Storage[(Channel Log Store)]
+    Storage --> Search[Index/Search Service]
+    Fanout --> Clients[Connected Devices]
+    Storage --> Sync[Offline Sync Service]
+    Observability --> Gateway
+    Observability --> Broker
+```
+
+### Design Walkthrough
+- **Gateway role:** Terminate connections, authenticate tenants, and apply rate limits before events hit the broker tier.
+- **Fan-out strategy:** Partition channels across workers; support replication for large channels and implement backlog cursors so reconnecting clients can replay deltas.
+- **Durability:** Append events to per-channel logs stored in blob storage + DB, index asynchronously for search, and apply retention policies per workspace.
+- **Reliability:** Provide ack-based delivery for important events, offline sync packages for mobile, and ops tooling for tenant failover or exports.
+
+## Interview Kit
+1. **How do you handle a 1,000-member channel spike?**  
+   Pre-shard channels by ID, use batching on fan-out, consider sub-channel replication, and monitor per-channel queue depth with automatic scaling.
+2. **What ensures typing indicators don’t overload the system?**  
+   Throttle client updates, piggyback indicators on existing frames, and drop stale signals if recipients lag to protect message delivery.
+3. **How would you migrate a tenant to another region?**  
+   Snapshot their data, replay event logs into the new region, dual-write during cutover, and update routing metadata while monitoring connection churn.

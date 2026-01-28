@@ -37,3 +37,32 @@
 ## Operational Considerations
 - Provide runbooks for connectivity loss at venues, translator staffing, and scoreboard discrepancies.
 - Monitor localization queues, SSE disconnect rates, and push notification deliveries.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Editors[Editors UI] --> API[Authoring API]
+    API --> DB[(Commentary DB)]
+    API --> Stream[(Event Stream)]
+    Stream --> Delivery[SSE/WebSocket Delivery]
+    Stream --> Localization[Localization Service]
+    Localization --> Delivery
+    Stream --> Notifications[Push/SMS Pipeline]
+    DB --> Archive[Archive/Search]
+    Observability --> Delivery
+```
+
+### Design Walkthrough
+- **Structured authoring:** Editors post structured events (over, ball, text); validations enforce order and data quality.
+- **Localization:** Auto-translate with ML, queue for human edits, and version events so translations stay aligned with source.
+- **Delivery:** SSE/WebSocket services push updates under 2s; fallback channels (push, SMS) ensure reach even when data networks degrade.
+- **Parity:** Scoreboard, commentary, and notifications share event feed to keep states consistent; monitoring flags divergence.
+
+## Interview Kit
+1. **How do you recover from an editor going offline mid-over?**  
+   Provide offline drafts, autosave to local storage, and allow another editor to pick up via collaborative locking.
+2. **What ensures translations stay in sync?**  
+   Use event IDs, store translation revisions, and propagate corrections via the same event stream so clients update gracefully.
+3. **How do you handle surges during big matches?**  
+   Autoscale delivery nodes, cache latest few overs for quick catch-up, and use CDN for static assets (photos/highlights).

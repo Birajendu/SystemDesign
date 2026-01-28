@@ -36,3 +36,30 @@
 ## Operational Considerations
 - Document recommended kernel/sysctl settings (net.core.somaxconn, TCP backlog, huge pages).
 - Provide upgrade path and feature flags to disable risky optimizations quickly.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Clients --> Net[IO Threads / Event Loop]
+    Net --> Parser[Command Parser]
+    Parser --> Executors[Command Executors]
+    Executors --> DataStructs[(In-memory Structures)]
+    Executors --> Persistence[(Optional Persistence)]
+    Profiling[Perf/Tracing] --> Net
+    Profiling --> Executors
+```
+
+### Design Walkthrough
+- **Pipeline analysis:** Separate networking from execution threads, leverage io_uring or epoll, and minimize context switches.
+- **Parser/executor tuning:** Optimize hot paths (SET/GET) with vectorized parsing, command grouping, and lock-free data structures where feasible.
+- **Memory hygiene:** Adopt jemalloc/tcmalloc, align data layouts for cache locality, and compress large values when CPU headroom allows.
+- **Benchmark harness:** Automate redis-benchmark or custom workloads, collect latency histograms, and integrate perf/flamegraphs for regressions.
+
+## Interview Kit
+1. **What limits single-node throughput?**  
+   Typically CPU (per-command overhead), network syscalls, or memory bandwidth; profile to identify the dominant factor before optimizing.
+2. **How do you evaluate multi-threading benefits?**  
+   Measure throughput vs. CPU usage before/after enabling IO/executor threads, ensuring locking overhead doesn’t erase gains.
+3. **How to keep latency consistent while optimizing?**  
+   Track tail latencies, avoid long GC pauses, and throttle background work (AOF fsync, snapshots) to non-peak windows.

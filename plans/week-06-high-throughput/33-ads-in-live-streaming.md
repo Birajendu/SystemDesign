@@ -37,3 +37,31 @@
 ## Operational Considerations
 - Monitor ad fill rate, average latency, beacon success, and viewer QoE metrics.
 - Maintain playbooks for creative ingestion issues, DRM errors, and event scaling.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Ingest[Live Ingest] --> Transcode[Transcode Ladder]
+    Transcode --> Packager[Packager/Manifest]
+    Packager --> SSAI[SSAI Stitcher]
+    SSAI --> CDN[CDN/Origin]
+    CDN --> Viewers
+    SSAI --> Decision[Ad Decision Service]
+    Decision --> SSAI
+    SSAI --> Metrics[Beacons/Fraud Detection]
+```
+
+### Design Walkthrough
+- **Pipeline alignment:** Ads must match rendition bitrate/DRM; SSAI stitcher rewrites manifests and prepares slate fallback segments.
+- **Decisioning:** Collect viewer context, query ad server with timeouts, and use caching/pacing to avoid late/no-fill scenarios.
+- **Measurement:** Emit quartile beacons, feed anti-fraud service, and reconcile with ad platforms for billing accuracy.
+- **Quality of experience:** Keep added latency minimal, support fallback slates, and degrade gracefully when ad stack is unhealthy.
+
+## Interview Kit
+1. **How do you handle ad decision latency spikes?**  
+   Apply strict timeouts, prefetch campaigns, and fall back to slates; monitor and dynamically adjust ad pod lengths.
+2. **What’s the difference between SSAI and CSAI trade-offs?**  
+   SSAI centralizes stitching and is harder to block but more complex, while CSAI shifts logic to clients but risks inconsistent playback and ad blockers.
+3. **How do you detect fraudulent ad traffic?**  
+   Validate beacons against session data, compare with CDN logs, and use anomaly detection on engagement metrics; feed suspicious events to review pipelines.

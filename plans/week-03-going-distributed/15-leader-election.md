@@ -37,3 +37,29 @@
 ## Operational Considerations
 - Monitor term changes, election frequency, log replication lag.
 - Keep snapshotting/compaction tuned to avoid disk bloat; plan for key rotation + auth on coordination service.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Nodes[Application Nodes] --> Coordination[(Consensus Cluster)]
+    Coordination --> Nodes
+    Coordination --> KeyStore[(Metadata Store/Fencing Tokens)]
+    Nodes --> Clients[Clients/Services]
+    Monitoring[Telemetry & Alerts] --> Coordination
+    Monitoring --> Nodes
+```
+
+### Design Walkthrough
+- **Lease lifecycle:** Nodes register with the coordination cluster, acquire leadership leases, and renew before expiry; fencing tokens guard downstream resources.
+- **State replication:** Leaders append to replicated logs; followers apply entries and stay ready to take over. Snapshots control log size.
+- **Failure handling:** Heartbeats detect slow/stuck leaders, triggering elections; applications must tolerate temporary unavailability.
+- **Observability:** Track terms, election durations, and log lag to catch split-brain or hardware issues early.
+
+## Interview Kit
+1. **What determines election timeout values?**  
+   Base on network RTT and jitter; timeouts must be long enough to avoid false elections yet short enough for quick failover (typically 3–5× RTT).
+2. **How do you prevent dual leaders?**  
+   Require majority quorum for term increments, use fencing tokens when touching shared resources, and ensure clients only accept writes from the highest term leader.
+3. **When would you use a managed coordinator (e.g., etcd) vs. rolling your own?**  
+   Choose managed when time-to-market and reliability trump customization; roll your own only with strong expertise or unique performance constraints.

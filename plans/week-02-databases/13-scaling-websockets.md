@@ -36,3 +36,31 @@
 ## Operational Considerations
 - Monitor OS limits (file descriptors), TLS cert expiration, and autoscaler lag.
 - Keep blue/green deployment process with connection draining + draining time budgets.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Clients --> Anycast[Anycast/DNS]
+    Anycast --> L4[L4 Load Balancers]
+    L4 --> Gateways[WebSocket Gateways]
+    Gateways --> Services[Backend Services]
+    Gateways --> Registry[Session Registry (Redis/etcd)]
+    Services --> Stores[(Stateful Stores)]
+    Observability --> Gateways
+    Observability --> Services
+```
+
+### Design Walkthrough
+- **Entry tier:** Use Anycast/DNS plus L4 balancers to steer clients into regional pools; enforce TLS termination and upgrade limits here.
+- **Gateway behavior:** Maintain connection state, heartbeats, and message routing; rely on session registry for global disconnects or targeted messaging.
+- **Scaling:** Model CPU/memory per connection, pre-scale pools ahead of traffic spikes, and drain updates during deploys using connection migration.
+- **Fallbacks:** Provide long-polling/SSE fallback for clients that can’t reconnect, and degrade gracefully by limiting optional channels first.
+
+## Interview Kit
+1. **How do you prevent reconnect storms after an outage?**  
+   Use randomized backoff in clients, stagger gateway restarts, and keep warm standby capacity to absorb surges.
+2. **What metrics prove gateway health?**  
+   Connection count, handshake success rate, ping/pong latency, CPU/memory per node, and error distribution across opcodes.
+3. **How would you evict a single user across the fleet?**  
+   Look up connection metadata in the registry, push a disconnect command via control channel, and confirm ack/cleanup to avoid ghost sessions.

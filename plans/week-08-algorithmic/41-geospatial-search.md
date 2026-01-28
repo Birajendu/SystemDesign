@@ -37,3 +37,31 @@
 ## Operational Considerations
 - Monitor index size, cell hot spots, stale data counts, replication lag.
 - Provide tooling for map visualizations, debugging geospatial anomalies, and scaling to new regions.
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart LR
+    Producers[[Entity Updates]] --> Ingest[Ingestion/Validation]
+    Ingest --> Indexer[Indexer\n(GeoHash/S2)]
+    Indexer --> HotStore[(Geo Index Store)]
+    HotStore --> QueryService[Query Planner]
+    QueryService --> Clients
+    HotStore --> Analytics[(OLAP/History)]
+    Compliance[Geo-fencing/Policy] --> QueryService
+    Observability --> HotStore
+```
+
+### Design Walkthrough
+- **Indexing:** Convert lat/lon to multi-resolution cells, store in geo-enabled DB or search engine, and tag with TTL for moving entities.
+- **Query planning:** Expand radius into covering cells, fetch candidates, then compute exact distance/haversine; support filters (category, availability).
+- **Freshness:** Stream updates through ingestion pipeline with dedupe and TTL expiry to ensure stale entities disappear quickly.
+- **Compliance:** Apply geo-fencing and residency rules at query time, ensuring user location policies are honored.
+
+## Interview Kit
+1. **How do you handle dense metro hotspots?**  
+   Increase index precision locally, shard by cell, and precompute caches for top queries.
+2. **What about moving objects (drivers)?**  
+   Require periodic heartbeats, compare timestamps, and drop stale entities; provide delta updates to minimize writes.
+3. **How would you support polygon queries?**  
+   Decompose polygon into covering cells or use R-tree intersections, then run point-in-polygon checks for final filtering.

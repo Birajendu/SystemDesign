@@ -36,3 +36,29 @@
 ## Operational Considerations
 - Keep models updated after major architecture shifts or on-call learnings.
 - Archive outdated heuristics and annotate when assumptions change (e.g., new datastore replaces old CAP profile).
+
+## Tutorial Deep Dive
+### Block Diagram
+```mermaid
+flowchart TD
+    Incidents[Recent Incidents] --> Extract[Extract Lessons]
+    Extract --> Models[Mental Models Library]
+    Models --> Guides[Facilitation Guides\n& Checklists]
+    Guides --> Teams[Teams & Designers]
+    Teams --> Feedback[Feedback + Retro Notes]
+    Feedback --> Models
+```
+
+### Design Walkthrough
+- **Incident harvesting:** Start with a shared log of outages/launches, tag each with tensions observed, and use it to populate the models repository.
+- **Model codification:** For each model capture triggers, diagrams, anti-patterns, and example metrics so the artifact is actionable during interviews or reviews.
+- **Workflow integration:** Embed checklists into design doc templates, retro forms, and Slack bots so referencing a model becomes muscle memory.
+- **Feedback loop:** Track how often models are invoked, what gaps emerge, and iterate by adding new heuristics or pruning outdated ones.
+
+## Interview Kit
+1. **How do you keep mental models from becoming dogma?**  
+   Pair each model with explicit “fails when…” guidance, encourage experiments that challenge the assumptions, and review them quarterly to incorporate new data.
+2. **How would you introduce these models to a new team quickly?**  
+   Run a workshop using a recent incident, walk through applying each model live, and provide cheat sheets plus async reflection prompts.
+3. **Which metrics prove that models improved design quality?**  
+   Track review cycle time, number of late-stage design pivots, and incident frequency tied to model-covered areas; aim for measurable reductions over multiple releases.
