@@ -1,4 +1,4 @@
-# System Design Masterclass — Tutorial Companion
+# System Design Masterclass — Tutorial
 
 This repository captures a tutorial-style design plan for every problem highlighted in the. The goal is to give you a reproducible workshop format: walk through the discovery questions, map requirements to architecture, and run fast validation loops before you ever open your IDE.
 
